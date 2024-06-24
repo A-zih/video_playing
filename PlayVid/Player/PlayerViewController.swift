@@ -9,66 +9,21 @@ import UIKit
 import AVKit
 import SnapKit
 
-let iconConfig = UIImage.SymbolConfiguration(pointSize: 26, weight: .medium, scale: .default)
-
-enum PlayType:Int {
-    case Pause
-    case Play
-    case Forward
-    case Backward
-}
-
 class PlayerViewController: UIViewController {
     private lazy var containerView: UIView = {
         let view = UIView()
         view.backgroundColor = .clear
         return view
     }()
-    private lazy var controlView: UIView = {
-        let view = UIView()
-        view.backgroundColor = UIColor(red: 0, green: 0, blue: 0, alpha: 0.3)
-        return view
+    private lazy var panelView: PanelView = {
+        let panelView = PanelView()
+        panelView.delegate = self
+        return panelView
     }()
-    private lazy var slider:UISlider = {
-        let slider = UISlider()
-        let thumbImageNormal = UIImage(systemName: "circle.fill")?.withTintColor(.orange, renderingMode: .alwaysOriginal)
-        slider.setThumbImage(thumbImageNormal, for: .normal)
-        let thumbSize = CGSize(width: 18, height: 18)
-        slider.bounds.size = thumbSize
-        slider.tintColor = .orange
-        slider.maximumTrackTintColor = .lightGray
-        return slider
-    }()
-    private lazy var forwardBtn:UIButton = {
-        let btn = UIButton()
-        btn.tag = PlayType.Forward.rawValue
-        btn.setImage(UIImage(systemName: "goforward.10", withConfiguration: iconConfig), for: .normal)
-        btn.tintColor = .white
-        return btn
-    }()
-    private lazy var backwardBtn:UIButton = {
-        let btn = UIButton()
-        btn.tag = PlayType.Backward.rawValue
-        btn.setImage(UIImage(systemName: "gobackward.10", withConfiguration: iconConfig), for: .normal)
-        btn.tintColor = .white
-        return btn
-    }()
-    private lazy var playBtn:UIButton = {
-        let btn = UIButton()
-        btn.setImage(UIImage(systemName: "play.fill", withConfiguration: iconConfig), for: .normal)
-        btn.tintColor = .white
-        return btn
-    }()
-    private lazy var timeLabel:UILabel = {
-        let label = UILabel()
-        label.font = label.font.withSize(15)
-        label.textColor = UIColor(red: 152, green: 155, blue: 163, alpha: 1)
-        label.text = "00:00 / 00:00"
-        return label
-    }()
-    private var currentType:PlayType = .Pause
     private var isSeeking:Bool = false
     private var shouldUpdateLayout = true
+    private var shouldRepeat = false
+    private var currentSpeed:Float = 1.0
     var hideControlsTimer: Timer?
     var player: AVPlayer!
     var playerLayer: AVPlayerLayer!
@@ -83,6 +38,11 @@ class PlayerViewController: UIViewController {
     
     deinit {
         NotificationCenter.default.removeObserver(self)
+        if let token = timeObserverToken {
+            player.removeTimeObserver(token)
+            timeObserverToken = nil
+        }
+        hideControlsTimer?.invalidate()
     }
     
     override func viewDidLayoutSubviews() {
@@ -100,11 +60,9 @@ class PlayerViewController: UIViewController {
         }, completion: nil)
     }
     
-    
     func setupUI() {
         func setupContainerView() {
             self.view.addSubview(containerView)
-            
             containerView.snp.makeConstraints { make in
                 make.center.equalTo(self.view)
                 make.width.equalTo(self.view).multipliedBy(1)
@@ -124,97 +82,21 @@ class PlayerViewController: UIViewController {
             playerLayer.frame = self.containerView.bounds
             self.containerView.layer.addSublayer(playerLayer)
         }
-        
-        func setupControlView() {
-            self.containerView.addSubview(controlView)
-            controlView.snp.makeConstraints { make in
+                
+        func setupPanelView() {
+            self.containerView.addSubview(panelView)
+            panelView.snp.makeConstraints { make in
                 make.top.bottom.left.right.equalTo(self.containerView)
-            }
-            
-            self.controlView.addSubview(slider)
-            slider.addTarget(self, action: #selector(sliderValueChanged), for: .valueChanged)
-            slider.addTarget(self, action: #selector(sliderTouchDown(_:)), for: .touchDown)
-            slider.addTarget(self, action: #selector(sliderTouchUp(_:)), for: [.touchUpInside, .touchUpOutside])
-            slider.snp.makeConstraints { make in
-                make.height.equalTo(20)
-                make.bottom.equalTo(self.controlView.safeAreaLayoutGuide)
-                make.left.right.equalTo(self.controlView.safeAreaLayoutGuide)
-            }
-            
-            self.controlView.addSubview(timeLabel)
-            timeLabel.snp.makeConstraints { make in
-                make.bottom.equalTo(slider.snp.top).offset(-5)
-                make.left.equalTo(slider.snp.left).offset(8)
             }
             if let currentItem = self.player.currentItem {
                 let duration = CMTimeGetSeconds(currentItem.asset.duration)
-                timeLabel.text = "00:00 / " + Utils.convertSecondToTimeString(seconds: Int(duration))
-            }
-            
-            playBtn.addTarget(self, action: #selector(playTapped), for: .touchUpInside)
-            self.controlView.addSubview(playBtn)
-            playBtn.snp.makeConstraints { make in
-                make.height.width.equalTo(50)
-                make.centerX.equalTo(self.controlView.snp.centerX)
-                make.centerY.equalTo(self.controlView.snp.centerY)
-            }
-            
-            backwardBtn.addTarget(self, action: #selector(goForwardOrBackward(_:)), for: .touchUpInside)
-            self.controlView.addSubview(backwardBtn)
-            backwardBtn.snp.makeConstraints { make in
-                make.height.width.equalTo(50)
-                make.right.equalTo(playBtn.snp.left).offset(-30)
-                make.top.equalTo(playBtn.snp.top)
-            }
-            
-            forwardBtn.addTarget(self, action: #selector(goForwardOrBackward(_:)), for: .touchUpInside)
-            self.controlView.addSubview(forwardBtn)
-            forwardBtn.snp.makeConstraints { make in
-                make.height.width.equalTo(50)
-                make.left.equalTo(playBtn.snp.right).offset(30)
-                make.top.equalTo(playBtn.snp.top)
+                panelView.timeLabel.text = "00:00 / " + Utils.convertSecondToTimeString(seconds: Int(duration))
             }
         }
         
         setupContainerView()
         setupPlayerView()
-        setupControlView()
-    }
-    
-    @objc private func playTapped() {
-        switch currentType {
-        case .Pause:
-            player.play()
-//            player.rate = currentSpeed
-            playBtn.setImage(UIImage(systemName: "pause.fill", withConfiguration: iconConfig), for: .normal)
-            currentType = .Play
-//            startHideControlsTimer()
-        case .Play:
-            player.pause()
-            playBtn.setImage(UIImage(systemName: "play.fill", withConfiguration: iconConfig), for: .normal)
-            currentType = .Pause
-            hideControlsTimer?.invalidate()
-        case .Forward, .Backward:
-            break
-        }
-    }
-    
-    @objc func sliderValueChanged(_ sender: UISlider) {
-        if let currentItem = player.currentItem {
-            let totalSeconds = CMTimeGetSeconds(currentItem.duration)
-            let currentSeconds = Float64(sender.value) * totalSeconds
-            seekToTime(seconds: currentSeconds)
-        }
-    }
-    
-    @objc func sliderTouchDown(_ sender: UISlider) {
-        player.pause()
-    }
-        
-    @objc func sliderTouchUp(_ sender: UISlider) {
-        if currentType == .Play {
-            player.play()
-        }
+        setupPanelView()
     }
     
     func addPeriodicTimeObserver() {
@@ -224,50 +106,34 @@ class PlayerViewController: UIViewController {
             let currentTime = CMTimeGetSeconds(time)
             let duration = CMTimeGetSeconds(self.player.currentItem?.duration ?? CMTime(value: 1, timescale: 1))
             let progress = Float(currentTime / duration)
-            self.slider.value = progress
-            self.timeLabel.text = Utils.convertSecondToTimeString(seconds: Int(currentTime)) + " / " + Utils.convertSecondToTimeString(seconds: Int(duration))
+            self.panelView.slider.value = progress
+            self.panelView.timeLabel.text = Utils.convertSecondToTimeString(seconds: Int(currentTime)) + " / " + Utils.convertSecondToTimeString(seconds: Int(duration))
         }
     }
     
     @objc private func didTapOnPlayerView() {
-        controlView.isHidden.toggle()
-//        if !controlView.isHidden && currentType != .Pause {
-//            startHideControlsTimer()
-//        }
+        panelView.isHidden.toggle()
+        if !panelView.isHidden && panelView.currentType != .Pause {
+            startHideControlsTimer()
+        }
     }
     
     private func startHideControlsTimer() {
         hideControlsTimer?.invalidate()
-        hideControlsTimer = Timer.scheduledTimer(timeInterval: 2.0, target: self, selector: #selector(hideControls), userInfo: nil, repeats: false)
-    }
-    
-    @objc private func hideControls() {
-        controlView.isHidden = true
-    }
-    
-    @objc private func goForwardOrBackward(_ sender:UIButton) {
-        
-        var current = CMTimeGetSeconds(player.currentTime())
-        
-        switch sender.tag {
-        case PlayType.Forward.rawValue:
-            current += 10
-        case PlayType.Backward.rawValue:
-            current -= 10
-        default:
-            break
+        hideControlsTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            self.panelView.isHidden = true
         }
-        seekToTime(seconds: current)
     }
-    
+        
     private func seekToTime(seconds: Float64) {
         isSeeking = true
         if let currentItem = player.currentItem {
             let totalSeconds = CMTimeGetSeconds(currentItem.duration)
             let clampedSeconds = max(0, min(seconds, totalSeconds))
-            self.timeLabel.text = Utils.convertSecondToTimeString(seconds: Int(clampedSeconds)) + " / " + Utils.convertSecondToTimeString(seconds: Int(totalSeconds))
+            panelView.timeLabel.text = Utils.convertSecondToTimeString(seconds: Int(clampedSeconds)) + " / " + Utils.convertSecondToTimeString(seconds: Int(totalSeconds))
             let progress = Float(clampedSeconds / totalSeconds)
-            self.slider.value = progress
+            panelView.slider.value = progress
         }
         
         player.seek(to: CMTimeMakeWithSeconds(seconds, preferredTimescale: 600)) { [weak self] done in
@@ -279,20 +145,26 @@ class PlayerViewController: UIViewController {
     }
     
     @objc func playerDidFinishPlaying() {
-        player.pause()
-        playBtn.setImage(UIImage(systemName: "play.fill", withConfiguration: iconConfig), for: .normal)
-        currentType = .Pause
+        if shouldRepeat {
+            seekToTime(seconds: 0)
+            player.play()
+        } else {
+            player.pause()
+            panelView.setFinished()
+        }
     }
     
     private func updateLayout() {
-        let newOrientation = UIDevice.current.orientation
-        if newOrientation.isLandscape {
+        guard let windowScene = self.view.window?.windowScene else { return }
+        if windowScene.interfaceOrientation.isLandscape {
+            panelView.setIsFullScreen(value: true)
             containerView.snp.remakeConstraints { make in
                 make.center.equalTo(self.view)
                 make.height.equalTo(self.view).multipliedBy(1)
                 make.width.equalTo(containerView.snp.height).multipliedBy(16.0/9.0)
             }
-        } else if newOrientation.isPortrait {
+        } else if windowScene.interfaceOrientation.isPortrait {
+            panelView.setIsFullScreen(value: false)
             containerView.snp.remakeConstraints { make in
                 make.center.equalTo(self.view)
                 make.width.equalTo(self.view).multipliedBy(1)
@@ -301,8 +173,90 @@ class PlayerViewController: UIViewController {
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.playerLayer.frame = self.controlView.bounds
+            self.playerLayer.frame = self.containerView.bounds
         }
         self.view.layoutIfNeeded()
+    }
+}
+
+extension PlayerViewController: PanelViewDelegate {
+    func play() {
+        player.play()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.player.rate = self.currentSpeed
+        }
+        startHideControlsTimer()
+    }
+    
+    func pause() {
+        player.pause()
+        hideControlsTimer?.invalidate()
+    }
+    
+    func goForward() {
+        var current = CMTimeGetSeconds(player.currentTime())
+        current += 10
+        seekToTime(seconds: current)
+    }
+    
+    func goBackward() {
+        var current = CMTimeGetSeconds(player.currentTime())
+        current -= 10
+        seekToTime(seconds: current)
+    }
+    
+    func setRepeat(value: Bool) {
+        shouldRepeat = value
+    }
+    
+    func changedSliderValue(value: Float) {
+        if let currentItem = player.currentItem {
+            let totalSeconds = CMTimeGetSeconds(currentItem.duration)
+            let currentSeconds = Float64(value) * totalSeconds
+            seekToTime(seconds: currentSeconds)
+        }
+    }
+    
+    func showFullScreen(value: Bool) {
+        if #available(iOS 16.0, *) {
+            guard let windowScene = self.view.window?.windowScene else { return }
+            if windowScene.interfaceOrientation.isPortrait {
+                windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscape))
+            } else {
+                windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
+            }
+        } else {
+            if UIDevice.current.orientation.isPortrait && value {
+                let ori = UIInterfaceOrientation.landscapeRight.rawValue
+                UIDevice.current.setValue(ori, forKey: "orientation")
+            } else if UIDevice.current.orientation.isLandscape && !value {
+                let ori = UIInterfaceOrientation.portrait.rawValue
+                UIDevice.current.setValue(ori, forKey: "orientation")
+            }
+        }
+    }
+    
+    func adjustSpeed() {
+        let alert = UIAlertController(title: "播放速度", message: nil, preferredStyle: .actionSheet)
+        let speeds:[Float] = [0.5, 1.0, 1.5, 2.0]
+        for speed in speeds {
+            let action = UIAlertAction(title: String(speed) + "x", style: .default) { [weak self] _ in
+                guard let self = self else { return }
+                self.currentSpeed = speed
+                if self.panelView.currentType == .Play {
+                    self.player.rate = speed
+                }
+                let formattedSpeed = speed.truncatingRemainder(dividingBy: 1) == 0 ? String(format: "%.0f", speed) : String(speed)
+                let boldFont = UIFont.boldSystemFont(ofSize: self.panelView.speedBtn.titleLabel?.font.pointSize ?? 17)
+                let attributes: [NSAttributedString.Key: Any] = [.font: boldFont]
+                let attributedTitle = NSAttributedString(string: formattedSpeed + "x", attributes: attributes)
+                self.panelView.speedBtn.setAttributedTitle(attributedTitle, for: .normal)
+            }
+            alert.addAction(action)
+        }
+        let cancelAction = UIAlertAction(title: "取消", style: .cancel)
+        alert.addAction(cancelAction)
+        
+        self.present(alert, animated: true)
     }
 }

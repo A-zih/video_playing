@@ -15,7 +15,6 @@
 		5E9DE3382C250FDD00D70D90 /* PlayVidUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9DE3372C250FDD00D70D90 /* PlayVidUITests.swift */; };
 		5E9DE33A2C250FDD00D70D90 /* PlayVidUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9DE3392C250FDD00D70D90 /* PlayVidUITestsLaunchTests.swift */; };
 		5E9DE34B2C25128B00D70D90 /* PlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9DE3492C25128B00D70D90 /* PlayerViewController.swift */; };
-		5E9DE34C2C25128B00D70D90 /* PlayerViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 5E9DE34A2C25128B00D70D90 /* PlayerViewController.xib */; };
 		5E9DE34F2C251F9400D70D90 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5E9DE34E2C251F9400D70D90 /* SnapKit */; };
 		5E9DE3522C253A6A00D70D90 /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9DE3512C253A6A00D70D90 /* Utils.swift */; };
 		5EC80B8F2C27309200828D59 /* PanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EC80B8E2C27309200828D59 /* PanelView.swift */; };
@@ -52,7 +51,6 @@
 		5E9DE3372C250FDD00D70D90 /* PlayVidUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayVidUITests.swift; sourceTree = "<group>"; };
 		5E9DE3392C250FDD00D70D90 /* PlayVidUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayVidUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		5E9DE3492C25128B00D70D90 /* PlayerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewController.swift; sourceTree = "<group>"; };
-		5E9DE34A2C25128B00D70D90 /* PlayerViewController.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = PlayerViewController.xib; sourceTree = "<group>"; };
 		5E9DE3512C253A6A00D70D90 /* Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
 		5EC80B8E2C27309200828D59 /* PanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelView.swift; sourceTree = "<group>"; };
 		5EC80B902C2730AE00828D59 /* PanelView.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = PanelView.xib; sourceTree = "<group>"; };
@@ -140,7 +138,6 @@
 			children = (
 				5EC80B8D2C27306700828D59 /* View */,
 				5E9DE3492C25128B00D70D90 /* PlayerViewController.swift */,
-				5E9DE34A2C25128B00D70D90 /* PlayerViewController.xib */,
 			);
 			path = Player;
 			sourceTree = "<group>";
@@ -275,7 +272,6 @@
 				5E9DE3232C250FDC00D70D90 /* LaunchScreen.storyboard in Resources */,
 				5EC80B912C2730AE00828D59 /* PanelView.xib in Resources */,
 				5E9DE3202C250FDC00D70D90 /* Assets.xcassets in Resources */,
-				5E9DE34C2C25128B00D70D90 /* PlayerViewController.xib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
