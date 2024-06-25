@@ -11,6 +11,7 @@
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="PanelView" customModule="PlayVid" customModuleProvider="target">
             <connections>
                 <outlet property="backwardBtn" destination="ONB-0u-G66" id="ZjA-Yu-KcB"/>
+                <outlet property="bufferProgress" destination="Y1Y-I2-2oq" id="jiA-Yg-dDe"/>
                 <outlet property="forwardBtn" destination="Gk8-la-MyK" id="XfI-Ec-hur"/>
                 <outlet property="fullScreenBtn" destination="cad-cx-wGk" id="QbU-Su-kaS"/>
                 <outlet property="playBtn" destination="JJ6-dX-GgO" id="mTL-AX-Lb5"/>
@@ -25,6 +26,9 @@
             <rect key="frame" x="0.0" y="0.0" width="448" height="245"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
             <subviews>
+                <progressView opaque="NO" userInteractionEnabled="NO" alpha="0.69999999999999996" contentMode="scaleToFill" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Y1Y-I2-2oq">
+                    <rect key="frame" x="0.0" y="199" width="448" height="4"/>
+                </progressView>
                 <slider opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" minValue="0.0" maxValue="1" translatesAutoresizingMaskIntoConstraints="NO" id="yLJ-jD-yt3">
                     <rect key="frame" x="-2" y="191" width="452" height="21"/>
                     <constraints>
@@ -105,11 +109,14 @@
                 <constraint firstItem="yLJ-jD-yt3" firstAttribute="leading" secondItem="4Df-RO-BaP" secondAttribute="leading" id="Gpf-rz-0CX"/>
                 <constraint firstItem="rZE-H6-uea" firstAttribute="leading" secondItem="AgR-vf-nEj" secondAttribute="trailing" constant="25" id="JJe-dP-3AV"/>
                 <constraint firstItem="JJ6-dX-GgO" firstAttribute="centerX" secondItem="j7N-DL-YqU" secondAttribute="centerX" id="JoK-Nz-EVs"/>
+                <constraint firstItem="4Df-RO-BaP" firstAttribute="trailing" secondItem="Y1Y-I2-2oq" secondAttribute="trailing" id="Kx3-IF-YSF"/>
+                <constraint firstItem="Y1Y-I2-2oq" firstAttribute="centerY" secondItem="yLJ-jD-yt3" secondAttribute="centerY" id="UXd-2W-vuH"/>
                 <constraint firstItem="rZE-H6-uea" firstAttribute="top" secondItem="j7N-DL-YqU" secondAttribute="top" constant="10" id="Z9F-ji-oCV"/>
                 <constraint firstItem="JJ6-dX-GgO" firstAttribute="leading" secondItem="ONB-0u-G66" secondAttribute="trailing" constant="30" id="ZfR-zH-MKE"/>
                 <constraint firstItem="yLJ-jD-yt3" firstAttribute="leading" secondItem="Rau-dd-Qnd" secondAttribute="leading" constant="-8" id="dAh-GS-yIB"/>
                 <constraint firstItem="ONB-0u-G66" firstAttribute="centerY" secondItem="j7N-DL-YqU" secondAttribute="centerY" id="ei8-b4-s1t"/>
                 <constraint firstItem="Gk8-la-MyK" firstAttribute="centerY" secondItem="j7N-DL-YqU" secondAttribute="centerY" id="fm8-wt-9ka"/>
+                <constraint firstItem="Y1Y-I2-2oq" firstAttribute="leading" secondItem="4Df-RO-BaP" secondAttribute="leading" id="fnT-l8-ArA"/>
                 <constraint firstItem="4Df-RO-BaP" firstAttribute="bottom" secondItem="yLJ-jD-yt3" secondAttribute="bottom" id="gbt-6d-Y1O"/>
                 <constraint firstAttribute="trailing" secondItem="rZE-H6-uea" secondAttribute="trailing" constant="15" id="i48-HO-qPF"/>
                 <constraint firstItem="cad-cx-wGk" firstAttribute="centerY" secondItem="Rau-dd-Qnd" secondAttribute="centerY" id="om5-DY-p1U"/>

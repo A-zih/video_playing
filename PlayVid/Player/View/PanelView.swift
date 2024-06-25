@@ -37,10 +37,11 @@ class PanelView: UIView {
     @IBOutlet weak var fullScreenBtn: UIButton!
     @IBOutlet weak var repeatBtn: UIButton!
     @IBOutlet weak var speedBtn: UIButton!
+    @IBOutlet weak var bufferProgress: UIProgressView!
     var currentType:PlayType = .Pause
     var isRepeatOn:Bool = false
     var isFullScreen:Bool = false
-    var delegate:PanelViewDelegate?
+    weak var delegate:PanelViewDelegate?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -69,7 +70,7 @@ class PanelView: UIView {
     func setupUI() {
         func setupTimeLabel() {
             timeLabel.font = timeLabel.font?.withSize(15)
-            timeLabel.textColor = UIColor(red: 152, green: 155, blue: 163, alpha: 1)
+            timeLabel.textColor = .white
             timeLabel.text = "00:00 / 00:00"
         }
         func setupPlayBtn() {
@@ -89,12 +90,16 @@ class PanelView: UIView {
             backwardBtn.tintColor = .white
             backwardBtn.addTarget(self, action: #selector(goForwardOrBackward(_:)), for: .touchUpInside)
         }
+        func setupProgress() {
+            bufferProgress.trackTintColor = .lightGray
+            bufferProgress.progressTintColor = .white
+        }
         func setupSlider() {
             let thumbImageNormal = UIImage(systemName: "circle.fill")?.withTintColor(.orange, renderingMode: .alwaysOriginal)
             slider.setThumbImage(thumbImageNormal, for: .normal)
             slider.bounds.size = CGSize(width: 18, height: 18)
             slider.tintColor = .orange
-            slider.maximumTrackTintColor = .lightGray
+            slider.maximumTrackTintColor = .clear
             slider.addTarget(self, action: #selector(sliderValueChanged), for: .valueChanged)
             slider.addTarget(self, action: #selector(sliderTouchDown(_:)), for: .touchDown)
             slider.addTarget(self, action: #selector(sliderTouchUp(_:)), for: [.touchUpInside, .touchUpOutside])
@@ -122,6 +127,7 @@ class PanelView: UIView {
         setupPlayBtn()
         setupForwardBtn()
         setupBackwardBtn()
+        setupProgress()
         setupSlider()
         setupRepeatBtn()
         setupFullScreenBtn()

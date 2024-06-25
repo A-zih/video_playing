@@ -10,9 +10,15 @@ import AVKit
 import SnapKit
 
 class PlayerViewController: UIViewController {
+    private lazy var dismissBtn: UIButton = {
+        let btn = UIButton()
+        btn.setImage(UIImage(systemName: "xmark", withConfiguration: iconConfig), for: .normal)
+        btn.tintColor = .white
+        return btn
+    }()
     private lazy var containerView: UIView = {
         let view = UIView()
-        view.backgroundColor = .clear
+        view.backgroundColor = .black
         return view
     }()
     private lazy var panelView: PanelView = {
@@ -20,14 +26,92 @@ class PlayerViewController: UIViewController {
         panelView.delegate = self
         return panelView
     }()
+    private lazy var errorView: ErrorView = {
+        let errorView = ErrorView()
+        return errorView
+    }()
+    private lazy var loadingView: UIActivityIndicatorView = {
+        let activityIndicator = UIActivityIndicatorView(style: .large)
+        activityIndicator.color = .white
+        activityIndicator.hidesWhenStopped = true
+        return activityIndicator
+    }()
     private var isSeeking:Bool = false
     private var shouldUpdateLayout = true
     private var shouldRepeat = false
     private var currentSpeed:Float = 1.0
+    private var observerStatus: NSKeyValueObservation?
+    private var playbackBufferEmptyObserver: NSKeyValueObservation?
+    private var playbackLikelyToKeepUpObserver: NSKeyValueObservation?
+    private var loadedTimeRangesObserver: NSKeyValueObservation?
+
+    var playerURL:String
     var hideControlsTimer: Timer?
-    var player: AVPlayer!
-    var playerLayer: AVPlayerLayer!
+    private lazy var player: AVPlayer = {
+        guard let url = URL(string: self.playerURL) else { fatalError("Invalid URL") }
+        let item = AVPlayerItem(url: url)
+        let player = AVPlayer(playerItem: item)
+        observerStatus = item.observe(\.status, changeHandler: { [weak self] (item, value) in
+            guard let self = self else { return }
+            switch item.status {
+            case .readyToPlay:
+                debugPrint("status: ready to play")
+                self.readyToPlayAndSetupPanelView()
+            case .unknown, .failed:
+                debugPrint("status: failed ", item.error as Any)
+                self.failToPlayAndSetupErrorView()
+            @unknown default:
+                debugPrint("status: failed ", item.error as Any)
+                self.failToPlayAndSetupErrorView()
+            }
+        })
+        // Observe playbackBufferEmpty
+        playbackBufferEmptyObserver = item.observe(\.isPlaybackBufferEmpty) { [weak self] (item, value) in
+            guard let self = self else { return }
+            if item.isPlaybackBufferEmpty {
+                print("playback buffer empty")
+                self.loadingView.startAnimating()
+            }
+        }
+        // Observe playbackLikelyToKeepUp
+        playbackLikelyToKeepUpObserver = item.observe(\.isPlaybackLikelyToKeepUp) { [weak self] (item, value) in
+            guard let self = self else { return }
+            if item.isPlaybackLikelyToKeepUp {
+                print("playback likely to keep up")
+                if self.panelView.currentType == .Play {
+                    self.loadingView.stopAnimating()
+                }
+            }
+        }
+        // loaded buffer
+        loadedTimeRangesObserver = item.observe(\.loadedTimeRanges, options: [.new]) { [weak self] (item, value) in
+            guard let self = self else { return }
+            let loadedTimeRanges = item.loadedTimeRanges
+            guard let timeRange = loadedTimeRanges.first?.timeRangeValue else { return }
+            let startSeconds = CMTimeGetSeconds(timeRange.start)
+            let durationSeconds = CMTimeGetSeconds(timeRange.duration)
+            let totalBuffer = startSeconds + durationSeconds
+            if let currentItem = self.player.currentItem {
+                let duration = CMTimeGetSeconds(currentItem.asset.duration)
+                self.panelView.bufferProgress.progress = Float(totalBuffer / duration)
+            }
+        }
+        return player
+    }()
+    private lazy var playerLayer: AVPlayerLayer = {
+        let layer = AVPlayerLayer(player: self.player)
+        return layer
+    }()
     var timeObserverToken: Any?
+    
+    init(url: String) {
+        self.playerURL = url
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -43,6 +127,9 @@ class PlayerViewController: UIViewController {
             timeObserverToken = nil
         }
         hideControlsTimer?.invalidate()
+        observerStatus?.invalidate()
+        playbackBufferEmptyObserver?.invalidate()
+        playbackLikelyToKeepUpObserver?.invalidate()
     }
     
     override func viewDidLayoutSubviews() {
@@ -55,12 +142,26 @@ class PlayerViewController: UIViewController {
     
     override func willTransition(to newCollection: UITraitCollection, with coordinator: UIViewControllerTransitionCoordinator) {
         super.willTransition(to: newCollection, with: coordinator)
-        coordinator.animate(alongsideTransition: { context in
+        coordinator.animate(alongsideTransition: { [weak self] context in
+            guard let self = self else { return }
             self.shouldUpdateLayout = true
         }, completion: nil)
     }
     
     func setupUI() {
+        func setupBackground() {
+            self.view.backgroundColor = .black.withAlphaComponent(0.95)
+        }
+        
+        func setupDismissBtn() {
+            self.view.addSubview(dismissBtn)
+            dismissBtn.snp.makeConstraints { make in
+                make.top.left.equalTo(self.view.safeAreaLayoutGuide).offset(15)
+                make.width.height.equalTo(30)
+            }
+            dismissBtn.addTarget(self, action: #selector(didTapDismiss), for: .touchUpInside)
+        }
+        
         func setupContainerView() {
             self.view.addSubview(containerView)
             containerView.snp.makeConstraints { make in
@@ -73,30 +174,44 @@ class PlayerViewController: UIViewController {
         }
         
         func setupPlayerView() {
-            guard let url = URL(string: "https://videos.pexels.com/video-files/5207408/5207408-hd_1920_1080_25fps.mp4") else {
-                return
-            }
-            player = AVPlayer(url: url)
-            playerLayer = AVPlayerLayer(player: player)
             playerLayer.videoGravity = .resizeAspectFill
             playerLayer.frame = self.containerView.bounds
             self.containerView.layer.addSublayer(playerLayer)
         }
-                
-        func setupPanelView() {
-            self.containerView.addSubview(panelView)
-            panelView.snp.makeConstraints { make in
-                make.top.bottom.left.right.equalTo(self.containerView)
+        
+        func setupLoadingView() {
+            self.containerView.addSubview(loadingView)
+            loadingView.snp.makeConstraints { make in
+                make.center.equalTo(self.containerView)
             }
-            if let currentItem = self.player.currentItem {
-                let duration = CMTimeGetSeconds(currentItem.asset.duration)
-                panelView.timeLabel.text = "00:00 / " + Utils.convertSecondToTimeString(seconds: Int(duration))
-            }
+            loadingView.startAnimating()
         }
         
+        setupBackground()
+        setupDismissBtn()
         setupContainerView()
         setupPlayerView()
-        setupPanelView()
+        setupLoadingView()
+    }
+    
+    func readyToPlayAndSetupPanelView() {
+        self.loadingView.stopAnimating()
+        if let currentItem = self.player.currentItem {
+            let duration = CMTimeGetSeconds(currentItem.asset.duration)
+            self.containerView.addSubview(self.panelView)
+            self.panelView.snp.makeConstraints { make in
+                make.top.bottom.left.right.equalTo(self.containerView)
+            }
+            self.panelView.timeLabel.text = "00:00 / " + Utils.convertSecondToTimeString(seconds: Int(duration))
+        }
+    }
+    
+    func failToPlayAndSetupErrorView() {
+        self.loadingView.stopAnimating()
+        self.containerView.addSubview(self.errorView)
+        self.errorView.snp.makeConstraints { make in
+            make.top.bottom.left.right.equalTo(self.containerView)
+        }
     }
     
     func addPeriodicTimeObserver() {
@@ -157,6 +272,7 @@ class PlayerViewController: UIViewController {
     private func updateLayout() {
         guard let windowScene = self.view.window?.windowScene else { return }
         if windowScene.interfaceOrientation.isLandscape {
+            dismissBtn.isHidden = true
             panelView.setIsFullScreen(value: true)
             containerView.snp.remakeConstraints { make in
                 make.center.equalTo(self.view)
@@ -164,6 +280,7 @@ class PlayerViewController: UIViewController {
                 make.width.equalTo(containerView.snp.height).multipliedBy(16.0/9.0)
             }
         } else if windowScene.interfaceOrientation.isPortrait {
+            dismissBtn.isHidden = false
             panelView.setIsFullScreen(value: false)
             containerView.snp.remakeConstraints { make in
                 make.center.equalTo(self.view)
@@ -176,6 +293,10 @@ class PlayerViewController: UIViewController {
             self.playerLayer.frame = self.containerView.bounds
         }
         self.view.layoutIfNeeded()
+    }
+    
+    @objc private func didTapDismiss() {
+        self.dismiss(animated: false)
     }
 }
 
