@@ -356,10 +356,11 @@ extension PlayerViewController: PanelViewDelegate {
                 windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
             }
         } else {
-            if UIDevice.current.orientation.isPortrait && value {
+            guard let windowScene = self.view.window?.windowScene else { return }
+            if windowScene.interfaceOrientation.isPortrait {
                 let ori = UIInterfaceOrientation.landscapeRight.rawValue
                 UIDevice.current.setValue(ori, forKey: "orientation")
-            } else if UIDevice.current.orientation.isLandscape && !value {
+            } else {
                 let ori = UIInterfaceOrientation.portrait.rawValue
                 UIDevice.current.setValue(ori, forKey: "orientation")
             }
