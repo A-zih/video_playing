@@ -146,7 +146,7 @@ class PanelView: UIView {
         }
     }
     
-    @objc private func playTapped() {
+    @objc func playTapped() {
         switch currentType {
         case .Pause:
             playBtn.setImage(UIImage(systemName: "pause.fill", withConfiguration: iconConfig), for: .normal)
